@@ -410,6 +410,8 @@ export default function MortgageCalculator() {
           background: linear-gradient(135deg, #1a2235cc, #1e2a3ecc);
           border: 1px solid #2a3348;
           backdrop-filter: blur(20px);
+          border-radius: 12px;
+          padding: 16px;
         }
         
         @keyframes fadeUp {
@@ -482,7 +484,7 @@ export default function MortgageCalculator() {
         <div className="grid lg:grid-cols-5 gap-5">
           {/* ─── LEFT: INPUTS (2 cols) ─── */}
           <div className="lg:col-span-2 space-y-4 fade-up fade-up-d1">
-            <div className="card-glass rounded-2xl p-5 space-y-4">
+            <div className="card-glass space-y-4">
               {tab === "repayment" ? (
                 <>
                   <Slider
@@ -636,7 +638,7 @@ export default function MortgageCalculator() {
 
             {/* ── UPFRONT COSTS (repayment tab) ── */}
             {tab === "repayment" && (
-              <div className="card-glass rounded-2xl p-4 space-y-2">
+              <div className="card-glass space-y-2">
                 <div className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "#6b7588" }}>
                   Upfront Costs
                 </div>
@@ -677,7 +679,7 @@ export default function MortgageCalculator() {
             {tab === "repayment" ? (
               <>
                 {/* Big payment number */}
-                <div className="card-glass rounded-2xl p-5 text-center">
+                <div className="card-glass text-center">
                   <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: "#6b7588" }}>
                     Your repayment per {frequencyLabel(frequency).toLowerCase()}
                   </div>
@@ -715,7 +717,7 @@ export default function MortgageCalculator() {
                 {/* Charts row */}
                 <div className="grid md:grid-cols-2 gap-4">
                   {/* Pie */}
-                  <div className="card-glass rounded-2xl p-4">
+                  <div className="card-glass">
                     <div className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "#6b7588" }}>
                       Cost Breakdown
                     </div>
@@ -747,7 +749,7 @@ export default function MortgageCalculator() {
                   </div>
 
                   {/* Area chart - amortization */}
-                  <div className="card-glass rounded-2xl p-4">
+                  <div className="card-glass">
                     <div className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "#6b7588" }}>
                       Balance Over Time
                     </div>
@@ -770,7 +772,7 @@ export default function MortgageCalculator() {
                 </div>
 
                 {/* Interest vs Principal stacked */}
-                <div className="card-glass rounded-2xl p-4">
+                <div className="card-glass">
                   <div className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "#6b7588" }}>
                     Annual Principal vs Interest
                   </div>
@@ -808,7 +810,7 @@ export default function MortgageCalculator() {
                 </div>
 
                 {/* Amortization table (first 5 years summary) */}
-                <div className="card-glass rounded-2xl p-4 overflow-x-auto">
+                <div className="card-glass overflow-x-auto">
                   <div className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "#6b7588" }}>
                     Amortization Summary
                   </div>
@@ -854,7 +856,7 @@ export default function MortgageCalculator() {
             ) : (
               /* ── AFFORDABILITY TAB ── */
               <>
-                <div className="card-glass rounded-2xl p-5 text-center">
+                <div className="card-glass text-center">
                   <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: "#6b7588" }}>
                     Max property you could afford
                   </div>
@@ -888,7 +890,7 @@ export default function MortgageCalculator() {
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-4">
-                  <div className="card-glass rounded-2xl p-4">
+                  <div className="card-glass">
                     <div className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "#6b7588" }}>
                       Loan vs Deposit
                     </div>
@@ -919,7 +921,7 @@ export default function MortgageCalculator() {
                     </div>
                   </div>
 
-                  <div className="card-glass rounded-2xl p-4 space-y-3">
+                  <div className="card-glass space-y-3">
                     <div className="text-xs font-semibold uppercase tracking-wider" style={{ color: "#6b7588" }}>
                       Income Breakdown
                     </div>
@@ -966,7 +968,7 @@ export default function MortgageCalculator() {
                   </div>
                 </div>
 
-                <div className="card-glass rounded-2xl p-4">
+                <div className="card-glass">
                   <div className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "#6b7588" }}>
                     Estimated Upfront Costs at Max Price
                   </div>
