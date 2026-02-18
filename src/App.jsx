@@ -15,27 +15,131 @@ import {
   AreaChart,
 } from "recharts";
 
-/* ─── NSW STAMP DUTY (2024 tiers) ─── */
-const calculateStampDuty = (price, isFirstHome = false) => {
-  if (isFirstHome) {
-    if (price <= 800000) return 0;
-    if (price <= 1000000) {
-      const full = calcStampDutyTiers(price);
-      const concession = full * ((price - 800000) / 200000);
-      return Math.round(concession);
-    }
-  }
-  return calcStampDutyTiers(price);
+/* ─── STAMP DUTY BY STATE (2024 rates) ─── */
+
+// Progressive duty brackets: { from, base, rate }
+// duty = base + (price - from) * rate  for the highest applicable bracket
+const STATE_DUTY_BRACKETS = {
+  NSW: [
+    { from: 0,        base: 0,      rate: 0.0125 },
+    { from: 16000,    base: 200,    rate: 0.015  },
+    { from: 35000,    base: 485,    rate: 0.0175 },
+    { from: 93000,    base: 1500,   rate: 0.035  },
+    { from: 351000,   base: 10530,  rate: 0.045  },
+    { from: 1168000,  base: 47295,  rate: 0.055  },
+  ],
+  VIC: [
+    { from: 0,        base: 0,      rate: 0.014  },
+    { from: 25000,    base: 350,    rate: 0.024  },
+    { from: 130000,   base: 2870,   rate: 0.06   },
+    { from: 960000,   base: 52670,  rate: 0.055  },
+  ],
+  QLD: [
+    { from: 0,        base: 0,      rate: 0      },
+    { from: 5000,     base: 0,      rate: 0.015  },
+    { from: 75000,    base: 1050,   rate: 0.035  },
+    { from: 540000,   base: 17325,  rate: 0.045  },
+    { from: 1000000,  base: 38025,  rate: 0.0575 },
+  ],
+  SA: [
+    { from: 0,        base: 0,      rate: 0.01   },
+    { from: 12000,    base: 120,    rate: 0.02   },
+    { from: 30000,    base: 480,    rate: 0.03   },
+    { from: 50000,    base: 1080,   rate: 0.035  },
+    { from: 100000,   base: 2830,   rate: 0.04   },
+    { from: 200000,   base: 6830,   rate: 0.0425 },
+    { from: 250000,   base: 8955,   rate: 0.0475 },
+    { from: 300000,   base: 11330,  rate: 0.05   },
+    { from: 500000,   base: 21330,  rate: 0.055  },
+  ],
+  WA: [
+    { from: 0,        base: 0,      rate: 0.019  },
+    { from: 80000,    base: 1520,   rate: 0.0285 },
+    { from: 100000,   base: 2090,   rate: 0.038  },
+    { from: 250000,   base: 7790,   rate: 0.0475 },
+    { from: 500000,   base: 19665,  rate: 0.0515 },
+  ],
+  TAS: [
+    { from: 0,        base: 20,     rate: 0      },
+    { from: 3000,     base: 75,     rate: 0.03   },
+    { from: 25000,    base: 735,    rate: 0.035  },
+    { from: 75000,    base: 2485,   rate: 0.04   },
+    { from: 200000,   base: 7485,   rate: 0.045  },
+    { from: 375000,   base: 15360,  rate: 0.045  },
+  ],
+  ACT: [
+    { from: 0,        base: 0,      rate: 0.0032 },
+    { from: 200000,   base: 640,    rate: 0.022  },
+    { from: 300000,   base: 2840,   rate: 0.034  },
+    { from: 500000,   base: 9640,   rate: 0.0432 },
+    { from: 750000,   base: 20440,  rate: 0.059  },
+    { from: 1000000,  base: 35190,  rate: 0.064  },
+  ],
 };
 
-const calcStampDutyTiers = (price) => {
-  if (price <= 16000) return Math.round(price * 0.0125);
-  if (price <= 35000) return Math.round(200 + (price - 16000) * 0.015);
-  if (price <= 93000) return Math.round(485 + (price - 35000) * 0.0175);
-  if (price <= 351000) return Math.round(1500 + (price - 93000) * 0.035);
-  if (price <= 1168000) return Math.round(10530 + (price - 351000) * 0.045);
-  return Math.round(47295 + (price - 1168000) * 0.055);
+// First home buyer: { exempt (fully exempt ≤ this), ceiling (sliding concession ends) }
+// States with no duty concession (grants instead) use exempt: 0
+const FIRST_HOME_EXEMPTIONS = {
+  NSW: { exempt: 800000,  ceiling: 1000000 },
+  VIC: { exempt: 600000,  ceiling: 750000  },
+  QLD: { exempt: 550000,  ceiling: 700000  },
+  SA:  { exempt: 650000,  ceiling: 700000  },
+  WA:  { exempt: 430000,  ceiling: 530000  },
+  TAS: { exempt: 0,       ceiling: 0       }, // first home grant, not duty concession
+  ACT: { exempt: 0,       ceiling: 0       }, // income-tested concession, simplified away
+  NT:  { exempt: 0,       ceiling: 0       }, // no duty exemption
 };
+
+// NT uses a formula-based approach rather than progressive brackets
+const calcNTDuty = (price) => {
+  if (price <= 525000) {
+    const V = price / 1000;
+    return Math.round(0.06571441 * V * V + 15 * V);
+  }
+  return Math.round(price * 0.0495);
+};
+
+const calcProgressiveDuty = (price, brackets) => {
+  for (let i = brackets.length - 1; i >= 0; i--) {
+    if (price >= brackets[i].from) {
+      return Math.round(brackets[i].base + (price - brackets[i].from) * brackets[i].rate);
+    }
+  }
+  return 0;
+};
+
+const calcFullDuty = (price, state) => {
+  if (state === "NT") return calcNTDuty(price);
+  const brackets = STATE_DUTY_BRACKETS[state];
+  if (!brackets) return 0;
+  return calcProgressiveDuty(price, brackets);
+};
+
+const calculateStampDuty = (price, state = "NSW", isFirstHome = false) => {
+  const exemption = FIRST_HOME_EXEMPTIONS[state];
+  if (isFirstHome && exemption && exemption.exempt > 0) {
+    if (price <= exemption.exempt) return 0;
+    if (price <= exemption.ceiling) {
+      const fullDuty = calcFullDuty(price, state);
+      const fraction = (price - exemption.exempt) / (exemption.ceiling - exemption.exempt);
+      return Math.round(fullDuty * fraction);
+    }
+  }
+  return calcFullDuty(price, state);
+};
+
+const STATE_NAMES = {
+  NSW: "New South Wales",
+  VIC: "Victoria",
+  QLD: "Queensland",
+  SA:  "South Australia",
+  WA:  "Western Australia",
+  TAS: "Tasmania",
+  ACT: "ACT",
+  NT:  "Northern Territory",
+};
+
+const AU_STATES = ["NSW", "VIC", "QLD", "SA", "WA", "TAS", "ACT", "NT"];
 
 /* ─── LMI LOOKUP TABLE (approx, by LVR band & loan bucket) ─── */
 const LMI_TABLE = {
@@ -320,6 +424,7 @@ export default function MortgageCalculator() {
   const [extraRepay, setExtraRepay] = useState(0);
   const [offset, setOffset] = useState(0);
   const [isFirstHome, setIsFirstHome] = useState(false);
+  const [selectedState, setSelectedState] = useState("NSW");
 
   // Affordability
   const [income, setIncome] = useState(150000);
@@ -335,7 +440,7 @@ export default function MortgageCalculator() {
     const schedule = buildAmortization(loanAmount, rate, term, extraRepay, offset);
     const totalPaid = schedule.reduce((s, r) => s + r.totalPaid, 0);
     const totalInterest = schedule.reduce((s, r) => s + r.interestPay, 0);
-    const stampDuty = calculateStampDuty(homePrice, isFirstHome);
+    const stampDuty = calculateStampDuty(homePrice, selectedState, isFirstHome);
     const lmi = calculateLMI(loanAmount, lvr);
     const actualMonths = schedule.length;
     const yearlyData = buildYearlyData(schedule);
@@ -357,7 +462,7 @@ export default function MortgageCalculator() {
       maxPrice: Math.round(maxPrice),
       maxMonthly: calcPayment(maxLoan, rate, term),
     };
-  }, [homePrice, depositPct, rate, term, extraRepay, offset, isFirstHome, income, expenses, loanAmount, lvr]);
+  }, [homePrice, depositPct, rate, term, extraRepay, offset, isFirstHome, selectedState, income, expenses, loanAmount, lvr]);
 
   const displayPayment = convertPayment(results.monthly + extraRepay, frequency);
   const upfrontCosts = deposit + results.stampDuty + results.lmi;
@@ -452,7 +557,7 @@ export default function MortgageCalculator() {
           Mortgage Calculator
         </h1>
         <p className="text-sm max-w-lg mx-auto" style={{ color: "#6b7588" }}>
-          Accurate NSW estimates including stamp duty, LMI, and amortization.
+          Accurate {STATE_NAMES[selectedState]} estimates including stamp duty, LMI, and amortization.
         </p>
       </header>
 
@@ -485,6 +590,38 @@ export default function MortgageCalculator() {
           {/* ─── LEFT: INPUTS (2 cols) ─── */}
           <div className="lg:col-span-2 space-y-4 fade-up fade-up-d1">
             <div className="card-glass space-y-4">
+              {/* ─── State Selector ─── */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium" style={{ color: "#7a8599" }}>
+                  State / Territory
+                </label>
+                <select
+                  value={selectedState}
+                  onChange={(e) => setSelectedState(e.target.value)}
+                  className="w-full rounded-xl text-sm font-medium"
+                  style={{
+                    background: "#1c2230",
+                    color: "#e8eaed",
+                    border: "1px solid #2a3348",
+                    padding: "10px 14px",
+                    outline: "none",
+                    cursor: "pointer",
+                    appearance: "none",
+                    WebkitAppearance: "none",
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%237a8599' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+                    backgroundRepeat: "no-repeat",
+                    backgroundPosition: "right 12px center",
+                    paddingRight: "32px",
+                  }}
+                >
+                  {AU_STATES.map((s) => (
+                    <option key={s} value={s} style={{ background: "#1c2230" }}>
+                      {s} — {STATE_NAMES[s]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               {tab === "repayment" ? (
                 <>
                   <Slider
@@ -560,24 +697,37 @@ export default function MortgageCalculator() {
                   />
 
                   {/* First Home Toggle */}
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium" style={{ color: "#7a8599" }}>
-                      First Home Buyer (NSW)
-                    </span>
-                    <button
-                      onClick={() => setIsFirstHome(!isFirstHome)}
-                      className="relative w-12 h-6 rounded-full transition-colors duration-200"
-                      style={{ background: isFirstHome ? "#4ecdc4" : "#2a3040" }}
-                    >
-                      <div
-                        className="absolute top-1 w-4 h-4 rounded-full transition-transform duration-200"
-                        style={{
-                          background: isFirstHome ? "#0f1520" : "#555e6e",
-                          left: "4px",
-                          transform: isFirstHome ? "translateX(24px)" : "translateX(0)",
-                        }}
-                      />
-                    </button>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium" style={{ color: "#7a8599" }}>
+                        First Home Buyer ({selectedState})
+                      </span>
+                      <button
+                        onClick={() => setIsFirstHome(!isFirstHome)}
+                        className="relative w-12 h-6 rounded-full transition-colors duration-200"
+                        style={{ background: isFirstHome ? "#4ecdc4" : "#2a3040" }}
+                      >
+                        <div
+                          className="absolute top-1 w-4 h-4 rounded-full transition-transform duration-200"
+                          style={{
+                            background: isFirstHome ? "#0f1520" : "#555e6e",
+                            left: "4px",
+                            transform: isFirstHome ? "translateX(24px)" : "translateX(0)",
+                          }}
+                        />
+                      </button>
+                    </div>
+                    {isFirstHome && FIRST_HOME_EXEMPTIONS[selectedState]?.exempt === 0 && (
+                      <p className="text-xs" style={{ color: "#fbbf24" }}>
+                        {selectedState} offers first home grants rather than duty concessions.
+                      </p>
+                    )}
+                    {isFirstHome && FIRST_HOME_EXEMPTIONS[selectedState]?.exempt > 0 && (
+                      <p className="text-xs" style={{ color: "#4ecdc4" }}>
+                        Exempt ≤{fmt(FIRST_HOME_EXEMPTIONS[selectedState].exempt)}, sliding concession to{" "}
+                        {fmt(FIRST_HOME_EXEMPTIONS[selectedState].ceiling)}.
+                      </p>
+                    )}
                   </div>
                 </>
               ) : (
@@ -645,7 +795,7 @@ export default function MortgageCalculator() {
                 <div className="space-y-2">
                   {[
                     ["Deposit", fmt(deposit)],
-                    ["Stamp Duty (NSW)", fmt(results.stampDuty), isFirstHome && homePrice <= 800000 ? "EXEMPT" : null],
+                    [`Stamp Duty (${selectedState})`, fmt(results.stampDuty), isFirstHome && FIRST_HOME_EXEMPTIONS[selectedState]?.exempt > 0 && homePrice <= FIRST_HOME_EXEMPTIONS[selectedState].exempt ? "EXEMPT" : null],
                     ...(results.lmi > 0 ? [["LMI", fmt(results.lmi), `LVR ${lvr.toFixed(0)}%`]] : []),
                   ].map(([label, val, badge], i) => (
                     <div key={i} className="flex justify-between items-center py-1.5">
@@ -973,7 +1123,7 @@ export default function MortgageCalculator() {
                     Estimated Upfront Costs at Max Price
                   </div>
                   {(() => {
-                    const sd = calculateStampDuty(results.maxPrice, false);
+                    const sd = calculateStampDuty(results.maxPrice, selectedState, false);
                     const dep = Math.round(results.maxPrice * depositPct / 100);
                     const mLmi = calculateLMI(results.maxLoan, (1 - depositPct / 100) * 100);
                     return (
@@ -995,7 +1145,7 @@ export default function MortgageCalculator() {
       {/* ── FOOTER ── */}
       <footer className="text-center py-5" style={{ borderTop: "1px solid #1e2838", padding: "20px 15px" }}>
         <p className="text-xs" style={{ color: "#444d5e" }}>
-          Estimates only — consult a financial advisor. NSW stamp duty rates 2024. LMI is approximate.
+          Estimates only — consult a financial advisor. {selectedState} stamp duty rates 2024. LMI is approximate.
         </p>
       </footer>
 
